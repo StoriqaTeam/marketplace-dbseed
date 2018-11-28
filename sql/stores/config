@@ -1,1 +1,2 @@
-k8s_pod_selector="app=stores" 
+k8s_pod_selector="app=stores"
+owner="stores"
