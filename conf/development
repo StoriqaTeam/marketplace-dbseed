@@ -1,0 +1,9 @@
+# Path to log file (use stdout to print to terminal)
+log_path="stdout"
+# Redirect output by child processes to log
+log_applications=false
+debug_enabled=false
+
+db_host="db-postgresql"
+db_user="postgres"
+db_pass="a1a1a1a1"
