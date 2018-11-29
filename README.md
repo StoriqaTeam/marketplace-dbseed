@@ -21,6 +21,4 @@ two digit number, that defines the order in which these files apply.
 ```
 # K8S_POD_SELECTOR is generally `app=microservice_name`
 k8s_pod_selector="K8S_POD_SELECTOR"
-# Database owner in PostgreSQL, typically namedafter microservice
-owner="OWNER"
 ```

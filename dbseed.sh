@@ -18,12 +18,37 @@ E_CONF=22
 # Log messages
 LOG_E_MISC="Unknown error occurred."
 LOG_E_ARGS="Invalid arguments supplied."
+LOG_E_CONF="Invalid or missing configuration"
 
 ###
 # Functions
 ###
 
-printHelp(){
+clearDB() {
+    db_name="$1"
+    export PGPASSWORD="$db_pass"
+    psql="psql 
+        -U ${db_user-postgres}
+        -h ${db_host-localhost}
+        -d ${db_name-postgres}
+        --tuples-only
+        --no-align"
+
+    sequences=( `$psql -F, -c \\\ds | cut -d, -f2` )
+    tables=( `$psql -F, -c \\\dt | cut -d, -f2` )
+
+    for table in ${tables[@]}
+    do
+        $psql -c "TRUNCATE TABLE $table CASCADE"
+    done
+
+    for sequence in ${sequences[@]}
+    do
+        $psql -c "ALTER SEQUENCE $sequence RESTART WITH 1;"
+    done
+}
+
+printHelp() {
     echo "Usage:
     $myname [database] - reinitialize speciafied database
     $myname all - reinitialize all databases
@@ -35,7 +60,7 @@ logEvent() {
     timestamp=`date -R`
     log_msg="$@"
 
-    if [[ $log_path = "stdout" ]]
+    if [[ ${log_path-stdout} = "stdout" ]]
     then
         echo "[$timestamp] $log_msg"
     else
@@ -77,7 +102,9 @@ case "${1-}" in
 * )
     if [[ -s ./sql/${1}/config ]]
     then
-        . ./sql/${1}/config
+        db_name="$1"
+        . ./sql/${db_name}/config || errorExit $E_CONF $LOG_E_CONF
+        clearDB $db_name
     else
         printHelp
         errorExit $E_ARGS $LOG_E_ARGS
