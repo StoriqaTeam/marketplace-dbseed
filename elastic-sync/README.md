@@ -28,7 +28,7 @@ Build project and synchronize all products without deleting all entries from ela
 cargo build && RUST_LOG=elastic_sync=debug ./target/debug/elastic-sync --postgres "postgresql://stores:stores@100.71.27.96/stores" --elastic "http://100.66.28.123:9200" products
 ```
 
-Build project, deleting all product entries from elastic and synchronize all products
+Build project, delete all product entries from elastic and synchronize all products
 ```bash
 cargo build && RUST_LOG=elastic_sync=debug ./target/debug/elastic-sync --postgres "postgresql://stores:stores@100.71.27.96/stores" --elastic "http://100.66.28.123:9200" --delete-all products
 ```
@@ -38,7 +38,7 @@ Build project and synchronize all stores without deleting all entries from elast
 cargo build && RUST_LOG=elastic_sync=debug ./target/debug/elastic-sync --postgres "postgresql://stores:stores@100.71.27.96/stores" --elastic "http://100.66.28.123:9200" stores
 ```
 
-Build project, deleting all store entries from elastic and synchronize all stores
+Build project, delete all store entries from elastic and synchronize all stores
 ```bash
 cargo build && RUST_LOG=elastic_sync=debug ./target/debug/elastic-sync --postgres "postgresql://stores:stores@100.71.27.96/stores" --elastic "http://100.66.28.123:9200" --delete-all stores
 ```
