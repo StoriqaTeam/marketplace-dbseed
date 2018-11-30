@@ -21,7 +21,7 @@ ARGS:
     <entity_id> 
 ```
 
-##Example usage
+## Example usage
 
 Build project and synchronize all products without deleting all entries from elastic
 ```bash
