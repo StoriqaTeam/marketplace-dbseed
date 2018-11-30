@@ -12,6 +12,6 @@ pub struct Config {
     pub elastic_url: Option<String>,
     #[structopt(short = "d", long = "delete-all")]
     pub delete_all: bool,
-    pub table_name: String,
-    pub table_id: Option<i32>,
+    pub entity_name: String,
+    pub entity_id: Option<i32>,
 }

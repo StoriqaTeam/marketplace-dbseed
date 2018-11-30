@@ -68,7 +68,7 @@ fn start() -> Result<(), FailureError> {
         config,
     };
 
-    match app.config.table_name.as_ref() {
+    match app.config.entity_name.as_ref() {
         "stores" => app.sync_stores()?,
         "products" => app.sync_products()?,
         _ => bail!("Only \"stores\" and \"products\" table avalilable"),
@@ -216,11 +216,11 @@ impl KibanaProvider {
 
 impl App {
     fn sync_products(&self) -> Result<(), FailureError> {
-        if self.config.table_id.is_none() && self.config.delete_all {
+        if self.config.entity_id.is_none() && self.config.delete_all {
             self.provider.delete_all("products")?;
         }
 
-        let base_products = if let Some(store_id) = self.config.table_id {
+        let base_products = if let Some(store_id) = self.config.entity_id {
             self.conn
                 .query("SELECT id, store_id, short_description, long_description, category_id, views, rating, name, status FROM base_products WHERE id=$1", &[&store_id])?
         } else {
@@ -377,11 +377,11 @@ impl App {
     }
 
     fn sync_stores(&self) -> Result<(), FailureError> {
-        if self.config.table_id.is_none() && self.config.delete_all {
+        if self.config.entity_id.is_none() && self.config.delete_all {
             self.provider.delete_all("stores")?;
         }
 
-        let rows = if let Some(store_id) = self.config.table_id {
+        let rows = if let Some(store_id) = self.config.entity_id {
             self.conn
                 .query("SELECT id, country, user_id, product_categories, name, rating, status FROM stores WHERE id=$1", &[&store_id])?
         } else {
