@@ -1,2 +1,3 @@
 conf/development
+dump/*
 telepresence.log

@@ -1,10 +1,12 @@
 #!/bin/bash
 # Author: Maxim Vasilev <admin@qwertys.ru>
-# Description: Reinitializes speciafied (or all) databases
+# Description: Reinitializes specified (or all) databases
 
 # Raise an error in case of unbound var
 set -u
 myname=`basename $0`
+
+conf_dir="${HOME}/.k8s-ca"
 
 ###
 # Globs
@@ -14,44 +16,130 @@ myname=`basename $0`
 E_MISC=20
 E_ARGS=21
 E_CONF=22
+E_DBCONN=23
+E_AUTH=24
+E_TIMEOUT=25
 
 # Log messages
+LOG_AUTH="Authorization successful!"
+LOG_DELETE="Deleted pod"
+LOG_NOTREADY="PostgreSQL not ready yet."
+LOG_READY="PostgreSQL is up."
+LOG_CLEAR="Truncating database"
+LOG_INSERT="Inserting dump into DB"
+LOG_DUMP="Taking dump of DB"
+
 LOG_E_MISC="Unknown error occurred."
 LOG_E_ARGS="Invalid arguments supplied."
 LOG_E_CONF="Invalid or missing configuration"
+LOG_E_DBCONN="Failed to connect to postgres"
+LOG_E_AUTH="Authorization failed. Aborting."
+LOG_E_TIMEOUT="Timeout waiting for PostgreSQL to start."
 
 ###
 # Functions
 ###
 
+clusterAuth() {
+    if [[ ! -d $conf_dir ]]; then mkdir $conf_dir; fi
+    echo -n $k8s_ca | base64 -d > $conf_dir/cluster.crt
+
+    kubectl config set-credentials cluster --password=$k8s_pass --username=$k8s_user > /dev/null
+    kubectl config set-cluster cluster --server="$k8s_addr" --embed-certs=false --certificate-authority=$conf_dir/cluster.crt > /dev/null
+    kubectl config set-context cluster --user=cluster --cluster=cluster > /dev/null
+    kubectl config use-context cluster > /dev/null
+
+    logEvent $LOG_AUTH "'$k8s_addr'"
+}
+
+testDbConn() {
+    $psql -ql > /dev/null
+}
+
+restartDbPod() {
+    pod=$1
+    attempt=0
+
+    kubectl delete pod $pod
+    logEvent $LOG_DELETE $pod
+
+    until [[ $attempt = $recovery_attempt_count ]]
+    do
+        sleep $recovery_attempt_timeout
+        testDbConn && break
+        logEvent $LOG_NOTREADY
+        let attempt++
+
+        if [[ $attempt = $recovery_attempt_count ]]
+        then
+            errorExit $E_TIMEOUT $LOG_E_TIMEOUT
+        fi
+
+        logEvent $LOG_READY
+    done
+}
+
+getDump() {
+    db_name=$1
+    dump_path=$2
+    pg_dump="pg_dump -U $db_user -h $db_host -a"
+
+    logEvent $LOG_DUMP $db_name
+
+    $pg_dump $db_name > $dump_path
+}
+
+insertDump() {
+    db_name=$1
+    dump_path=$2
+
+    logEvent $LOG_INSERT $db_name
+
+    $psql -d $db_name -f $dump_path > /dev/null 2> /dev/null
+}
+
 clearDB() {
     db_name="$1"
-    export PGPASSWORD="$db_pass"
-    psql="psql 
-        -U ${db_user-postgres}
-        -h ${db_host-localhost}
-        -d ${db_name-postgres}
-        --tuples-only
-        --no-align"
 
-    sequences=( `$psql -F, -c \\\ds | cut -d, -f2` )
-    tables=( `$psql -F, -c \\\dt | cut -d, -f2` )
+    logEvent $LOG_CLEAR $db_name
+
+    sequences=( `$psql -d $db_name -F, -c \\\ds | cut -d, -f2` )
+    tables=( `$psql -d $db_name -F, -c \\\dt | cut -d, -f2` )
 
     for table in ${tables[@]}
     do
-        $psql -c "TRUNCATE TABLE $table CASCADE"
+        $psql -d $db_name \
+          -c "TRUNCATE TABLE $table CASCADE" \
+          > /dev/null 2> /dev/null
     done
 
     for sequence in ${sequences[@]}
     do
-        $psql -c "ALTER SEQUENCE $sequence RESTART WITH 1;"
+        $psql -d $db_name \
+          -c "ALTER SEQUENCE $sequence RESTART WITH 1;" \
+          > /dev/null 2> /dev/null
     done
+}
+
+resetDB() {
+    db_name=$1
+
+    if [[ -s ./sql/${db_name}/config ]]
+    then
+        . ./sql/${db_name}/config || errorExit $E_CONF $LOG_E_CONF
+        export PGPASSWORD="$db_pass"
+        clearDB $db_name
+        echo resetDB $db_name
+    else
+        errorExit $E_ARGS $LOG_E_ARGS
+    fi
 }
 
 printHelp() {
     echo "Usage:
-    $myname [database] - reinitialize speciafied database
-    $myname all - reinitialize all databases
+    $myname reset [database] - reinitialize specified database
+    $myname reset ALL - reinitialize all databases
+    $myname sync - sync this instance with production
     $myname help - print this help message"
 }
 
@@ -72,7 +160,7 @@ logEvent() {
 errorExit() {
     exit_code=$1
     shift
-    logEvent "$@"
+    if [[ $# > 0 ]]; then logEvent "$@"; fi
     exit $exit_code
 }
 
@@ -81,6 +169,12 @@ errorExit() {
 ###
 
 . ${DBSEED_CONF-"conf/development"}
+
+psql="psql 
+    -U ${db_user-postgres}
+    -h ${db_host-localhost}
+    --tuples-only
+    --no-align"
 
 # Enable debug?
 if [[ "${debug_enabled-false}" = "true" ]]; then set -x; fi
@@ -93,24 +187,54 @@ then
 fi
 
 case "${1-}" in
-"ALL" )
-    echo
-    ;;
 "help" )
     printHelp
     ;;
-* )
-    if [[ -s ./sql/${1}/config ]]
+"reset" )
+    shift
+    db_name="${1-nonexistent}"
+
+    testDbConn || errorExit $E_DBCONN $LOG_E_DBCONN
+
+    if [[ $db_name = ALL ]]
     then
-        db_name="$1"
-        . ./sql/${db_name}/config || errorExit $E_CONF $LOG_E_CONF
-        clearDB $db_name
+        dbs=( `ls sql` )
+        for db in ${dbs[@]}
+        do
+            resetDB $db
+        done
     else
-        printHelp
-        errorExit $E_ARGS $LOG_E_ARGS
+        resetDB $db_name
     fi
     ;;
-esac
+"sync" )
+    if [[ $k8s_auth = "true" ]]
+    then
+        clusterAuth || errorExit $E_AUTH $LOG_E_AUTH
+    fi
 
+    export PGPASSWORD="$db_pass"
+
+    restartDbPod $k8s_pod_name
+    testDbConn || errorExit $E_DBCONN $LOG_E_DBCONN
+    dblist=( `$psql -F, -l | cut -d, -f1 | grep -ve postgres -ve template` )
+
+    for db in ${dblist[@]}
+    do
+        dump_path=./dump/${db}.sql
+        getDump $db $dump_path
+        clearDB $db
+        insertDump $db $dump_path
+        rm $dump_path
+    done
+
+#     obfuscateUsers
+#     createSuperUser
+    ;;
+* )
+    printHelp
+    errorExit $E_ARGS
+    ;;
+esac
 
 exit 0 
