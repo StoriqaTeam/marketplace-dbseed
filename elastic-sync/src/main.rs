@@ -222,9 +222,9 @@ impl App {
 
         let base_products = if let Some(store_id) = self.config.entity_id {
             self.conn
-                .query("SELECT id, store_id, short_description, long_description, category_id, views, rating, name, status FROM base_products WHERE id=$1", &[&store_id])?
+                .query("SELECT id, store_id, short_description, long_description, category_id, views, rating, name, status FROM base_products WHERE id=$1 AND is_active=true", &[&store_id])?
         } else {
-            self.conn.query("SELECT id, store_id, short_description, long_description, category_id, views, rating, name, status FROM base_products", &[])?
+            self.conn.query("SELECT id, store_id, short_description, long_description, category_id, views, rating, name, status FROM base_products WHERE is_active=true", &[])?
         };
         debug!("got {} products from db", base_products.len());
 
@@ -306,7 +306,7 @@ impl App {
             products.iter_mut().map(|p| (p.id, p)).collect();
 
         let product_variants = self.conn.query(
-            "SELECT base_product_id, id, discount, price, currency FROM products WHERE base_product_id = ANY ($1)",
+            "SELECT base_product_id, id, discount, price, currency FROM products WHERE is_active=true AND base_product_id = ANY ($1)",
             &[&product_ids],
         )?;
 
@@ -383,10 +383,10 @@ impl App {
 
         let rows = if let Some(store_id) = self.config.entity_id {
             self.conn
-                .query("SELECT id, country, user_id, product_categories, name, rating, status FROM stores WHERE id=$1", &[&store_id])?
+                .query("SELECT id, country, user_id, product_categories, name, rating, status FROM stores WHERE id=$1 AND is_active=true", &[&store_id])?
         } else {
             self.conn.query(
-                "SELECT id, country, user_id, product_categories, name, rating, status FROM stores",
+                "SELECT id, country, user_id, product_categories, name, rating, status FROM stores WHERE is_active=true",
                 &[],
             )?
         };
