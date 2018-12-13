@@ -77,6 +77,8 @@ restartDbPod() {
 
         logEvent $LOG_READY
     done
+
+    kubectl delete pod -l app=kafka-connect
 }
 
 getDump() {
@@ -96,6 +98,20 @@ insertDump() {
     logEvent $LOG_INSERT $db_name
 
     $psql -d $db_name -f $dump_path > /dev/null 2> /dev/null
+}
+
+obfuscateUsers() {
+    $psql -d users -q \
+      -c "UPDATE users SET
+        first_name = 'user' || id,
+        last_name = 'user' || id,
+        middle_name = 'user' || id,
+        phone = '+7495' || id,
+        email = id || '@crapmail.tld'"
+    $psql -d users -q \
+      -c "UPDATE identities SET
+        email = user_id || '@crapmail.tld',
+        password = 'JJIKrKq4UtXrmNbXlflH9zhYxClU+AnngJ1Pl3NH/xA=.1x2DtY66Pg'"
 }
 
 clearDB() {
@@ -228,8 +244,7 @@ case "${1-}" in
         rm $dump_path
     done
 
-#     obfuscateUsers
-#     createSuperUser
+    obfuscateUsers
     ;;
 * )
     printHelp
