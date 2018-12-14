@@ -4,6 +4,11 @@ log_path="stdout"
 log_applications=false
 debug_enabled=false
 
+# Sync mode:
+# dump - gets dump of each db and reinserts it
+# elastic-sync - runs elastic-sync
+sync_mode=dump
+
 db_host="db-postgresql"
 db_user="postgres"
 db_pass="CrwHmp14dx"

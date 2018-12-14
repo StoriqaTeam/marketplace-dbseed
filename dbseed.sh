@@ -19,15 +19,18 @@ E_CONF=22
 E_DBCONN=23
 E_AUTH=24
 E_TIMEOUT=25
+E_SYNC=26
 
 # Log messages
-LOG_AUTH="Authorization successful!"
+LOG_AUTH="Authorization successful."
 LOG_DELETE="Deleted pod"
 LOG_NOTREADY="PostgreSQL not ready yet."
 LOG_READY="PostgreSQL is up."
 LOG_CLEAR="Truncating database"
 LOG_INSERT="Inserting dump into DB"
 LOG_DUMP="Taking dump of DB"
+LOG_OBFUSCATE="User obfuscation successful."
+LOG_SYNC="PostgreSQL to ElasticSearch sync complete."
 
 LOG_E_MISC="Unknown error occurred."
 LOG_E_ARGS="Invalid arguments supplied."
@@ -35,6 +38,7 @@ LOG_E_CONF="Invalid or missing configuration"
 LOG_E_DBCONN="Failed to connect to postgres"
 LOG_E_AUTH="Authorization failed. Aborting."
 LOG_E_TIMEOUT="Timeout waiting for PostgreSQL to start."
+LOG_E_SYNC="Failed to sync ElasticSearch to PostgreSQL."
 
 ###
 # Functions
@@ -74,9 +78,9 @@ restartDbPod() {
         then
             errorExit $E_TIMEOUT $LOG_E_TIMEOUT
         fi
-
-        logEvent $LOG_READY
     done
+
+    logEvent $LOG_READY
 
     kubectl delete pod -l app=kafka-connect
 }
@@ -107,11 +111,12 @@ obfuscateUsers() {
         last_name = 'user' || id,
         middle_name = 'user' || id,
         phone = '+7495' || id,
-        email = id || '@crapmail.tld'"
-    $psql -d users -q \
+        email = id || '@crapmail.tld'" \
+    && $psql -d users -q \
       -c "UPDATE identities SET
         email = user_id || '@crapmail.tld',
-        password = 'JJIKrKq4UtXrmNbXlflH9zhYxClU+AnngJ1Pl3NH/xA=.1x2DtY66Pg'"
+        password = 'JJIKrKq4UtXrmNbXlflH9zhYxClU+AnngJ1Pl3NH/xA=.1x2DtY66Pg'" \
+    && logEvent $LOG_OBFUSCATE
 }
 
 clearDB() {
@@ -149,6 +154,23 @@ resetDB() {
     else
         errorExit $E_ARGS $LOG_E_ARGS
     fi
+}
+
+dumpSync() {
+    dblist=( `$psql -F, -l | cut -d, -f1 | grep -ve postgres -ve template` )
+
+    for db in ${dblist[@]}
+    do
+        dump_path=./dump/${db}.sql
+        getDump $db $dump_path
+        clearDB $db
+        insertDump $db $dump_path
+        rm $dump_path
+    done
+}
+
+elasticSync() {
+    echo YO DAWG
 }
 
 printHelp() {
@@ -233,18 +255,16 @@ case "${1-}" in
 
     restartDbPod $k8s_pod_name
     testDbConn || errorExit $E_DBCONN $LOG_E_DBCONN
-    dblist=( `$psql -F, -l | cut -d, -f1 | grep -ve postgres -ve template` )
 
-    for db in ${dblist[@]}
-    do
-        dump_path=./dump/${db}.sql
-        getDump $db $dump_path
-        clearDB $db
-        insertDump $db $dump_path
-        rm $dump_path
-    done
+    if [[ ${sync_mode-dump} = dump ]]
+    then
+        dumpSync || errorExit $E_SYNC $LOG_E_SYNC
+    else
+        elasticSync || errorExit $E_SYNC $LOG_E_SYNC
+    fi
 
     obfuscateUsers
+    kubectl delete pods -l stack=storiqa
     ;;
 * )
     printHelp

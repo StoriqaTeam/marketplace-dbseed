@@ -12,10 +12,12 @@ RUN apt-get update \
   && apt-get autoremove -y \
   && apt-get clean -y \
   && rm -rf /var/lib/apt/lists/ \
-  && mkdir /root/dump
+  && mkdir /root/dump \
+  && mkdir -p /root/elastic-sync/target/debug
 
 COPY conf /root/conf
 COPY sql /root/sql
+COPY elastic-sync/target/debug/elastic-sync
 COPY dbseed.sh /root/dbseed.sh
 
 WORKDIR /root
