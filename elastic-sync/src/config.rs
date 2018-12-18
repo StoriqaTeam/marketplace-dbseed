@@ -1,8 +1,5 @@
 #[derive(Debug, StructOpt, Clone)]
-#[structopt(
-    name = "elastic-sync",
-    about = "Sync storiqa stores with elastic"
-)]
+#[structopt(name = "elastic-sync", about = "Sync storiqa stores with elastic")]
 pub struct Config {
     #[structopt(short = "p", long = "postgres")]
     pub postgres_url: String,
@@ -14,4 +11,6 @@ pub struct Config {
     pub delete_all: bool,
     pub entity_name: String,
     pub entity_id: Option<i32>,
+    #[structopt(short = "m", long = "set-mapping")]
+    pub entity_mapping_source: Option<String>,
 }

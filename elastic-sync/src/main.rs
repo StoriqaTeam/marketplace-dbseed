@@ -18,6 +18,7 @@ use std::collections::HashMap;
 use failure::Error as FailureError;
 use postgres::{Connection, TlsMode};
 use reqwest::Client;
+use reqwest::Method;
 use serde::ser::Serialize;
 use structopt::StructOpt;
 
@@ -95,6 +96,9 @@ struct KibanaProvider {
 
 trait ApiProvider {
     fn delete_all(&self, index: &str) -> Result<(), FailureError>;
+    fn delete_index(&self, index: &str) -> Result<(), FailureError>;
+    fn create_index(&self, index: &str) -> Result<(), FailureError>;
+    fn set_mapping(&self, index: &str, data: serde_json::Value) -> Result<(), FailureError>;
     fn bulk(&self, data: String) -> Result<(), FailureError>;
 }
 
@@ -108,7 +112,25 @@ impl ApiProvider for ElasticProvider {
 
     fn bulk(&self, data: String) -> Result<(), FailureError> {
         let url = format!("{}/_bulk", self.url);
-        let _ = self.request(&url, data)?;
+        let _ = self.post(&url, data)?;
+        Ok(())
+    }
+
+    fn set_mapping(&self, index: &str, data: serde_json::Value) -> Result<(), FailureError> {
+        let url = format!("{}/{}/_mapping/_doc", self.url, index);
+        let _ = self.request(&url, Method::PUT, Some(&data))?;
+        Ok(())
+    }
+
+    fn delete_index(&self, index: &str) -> Result<(), FailureError> {
+        let url = format!("{}/{}", self.url, index);
+        let _ = self.request::<()>(&url, Method::DELETE, None)?;
+        Ok(())
+    }
+
+    fn create_index(&self, index: &str) -> Result<(), FailureError> {
+        let url = format!("{}/{}", self.url, index);
+        let _ = self.request::<()>(&url, Method::PUT, None)?;
         Ok(())
     }
 }
@@ -134,13 +156,38 @@ impl ElasticProvider {
         Ok(response_text)
     }
 
-    fn request(&self, url: &str, payload: String) -> Result<String, FailureError> {
+    fn post(&self, url: &str, payload: String) -> Result<String, FailureError> {
         let request = self
             .http_client
             .post(url)
             .header("kbn-xsrf", "reporting")
             .header("Content-Type", "application/json")
             .body(payload);
+        debug!("request: {:?}", request);
+        let mut response = request.send()?;
+        let response_text = response.text()?;
+
+        if !response.status().is_success() {
+            bail!("{}", response_text);
+        }
+        Ok(response_text)
+    }
+
+    fn request<T: Serialize>(
+        &self,
+        url: &str,
+        method: Method,
+        payload: Option<&T>,
+    ) -> Result<String, FailureError> {
+        let mut request = self
+            .http_client
+            .request(method, url)
+            .header("kbn-xsrf", "reporting");
+        if let Some(payload) = payload {
+            request = request
+                .header("Content-Type", "application/json")
+                .json(&payload);
+        }
         debug!("request: {:?}", request);
         let mut response = request.send()?;
         let response_text = response.text()?;
@@ -165,7 +212,31 @@ impl ApiProvider for KibanaProvider {
 
     fn bulk(&self, data: String) -> Result<(), FailureError> {
         let url = format!("{}/api/console/proxy?path=_bulk&method=POST", self.url);
-        let _ = self.request(&url, data)?;
+        let _ = self.post(&url, data)?;
+        Ok(())
+    }
+
+    fn set_mapping(&self, index: &str, data: serde_json::Value) -> Result<(), FailureError> {
+        let url = format!(
+            "{}/api/console/proxy?path={}/_mapping/_doc&method=PUT",
+            self.url, index
+        );
+        let _ = self.request_json(&url, Some(&data))?;
+        Ok(())
+    }
+
+    fn delete_index(&self, index: &str) -> Result<(), FailureError> {
+        let url = format!(
+            "{}/api/console/proxy?path={}&method=DELETE",
+            self.url, index
+        );
+        let _ = self.request_json::<()>(&url, None)?;
+        Ok(())
+    }
+
+    fn create_index(&self, index: &str) -> Result<(), FailureError> {
+        let url = format!("{}/api/console/proxy?path={}&method=PUT", self.url, index);
+        let _ = self.request_json::<()>(&url, None)?;
         Ok(())
     }
 }
@@ -195,7 +266,7 @@ impl KibanaProvider {
         Ok(response_text)
     }
 
-    fn request(&self, url: &str, payload: String) -> Result<String, FailureError> {
+    fn post(&self, url: &str, payload: String) -> Result<String, FailureError> {
         let request = self
             .http_client
             .post(url)
@@ -216,8 +287,26 @@ impl KibanaProvider {
 
 impl App {
     fn sync_products(&self) -> Result<(), FailureError> {
-        if self.config.entity_id.is_none() && self.config.delete_all {
-            self.provider.delete_all("products")?;
+        match (
+            self.config.entity_id.is_some(),
+            self.config.delete_all,
+            &self.config.entity_mapping_source,
+        ) {
+            (false, true, Some(ref entity_mapping_source)) => {
+                self.re_create_with_mapping("products", &entity_mapping_source)?;
+            }
+            (false, true, None) => {
+                self.provider.delete_all("products")?;
+            }
+            (true, _, _) => {
+                bail!("delete-all and set-mapping unavailable when entity_id is provided");
+            }
+            (false, false, Some(_)) => {
+                bail!("set-mapping unavailable when delete-all is not provided");
+            }
+            (false, false, None) => {
+                //do nothing
+            }
         }
 
         let base_products = if let Some(store_id) = self.config.entity_id {
@@ -259,7 +348,8 @@ impl App {
         let name: Option<serde_json::Value> = base_product.get("name");
         let default_name = default_name(serde_json::from_value::<Vec<Translation>>(
             name.clone().unwrap_or(json!([])),
-        )?).ok_or(format_err!("Could not extract default name"))?;
+        )?)
+        .ok_or(format_err!("Could not extract default name"))?;
         let status: Option<String> = base_product.get("status");
         let store_id: Option<i32> = base_product.get("store_id");
         let store_and_status = format!(
@@ -377,8 +467,26 @@ impl App {
     }
 
     fn sync_stores(&self) -> Result<(), FailureError> {
-        if self.config.entity_id.is_none() && self.config.delete_all {
-            self.provider.delete_all("stores")?;
+        match (
+            self.config.entity_id.is_some(),
+            self.config.delete_all,
+            &self.config.entity_mapping_source,
+        ) {
+            (false, true, Some(ref entity_mapping_source)) => {
+                self.re_create_with_mapping("stores", &entity_mapping_source)?;
+            }
+            (false, true, None) => {
+                self.provider.delete_all("stores")?;
+            }
+            (true, _, _) => {
+                bail!("delete-all and set-mapping unavailable when entity_id is provided");
+            }
+            (false, false, Some(_)) => {
+                bail!("set-mapping unavailable when delete-all is not provided");
+            }
+            (false, false, None) => {
+                //do nothing
+            }
         }
 
         let rows = if let Some(store_id) = self.config.entity_id {
@@ -420,7 +528,8 @@ impl App {
         let status = row.get("status");
         let default_name = default_name(serde_json::from_value::<Vec<Translation>>(
             name.clone().unwrap_or(json!([])),
-        )?).ok_or(format_err!("Could not extract default name"))?;
+        )?)
+        .ok_or(format_err!("Could not extract default name"))?;
         let store = Store {
             id: row.get("id"),
             country: row.get("country"),
@@ -442,6 +551,31 @@ impl App {
             status,
         };
         Ok(store)
+    }
+
+    fn re_create_with_mapping(
+        &self,
+        index_name: &str,
+        mapping_path: &str,
+    ) -> Result<(), FailureError> {
+        use std::fs::File;
+        use std::io::prelude::*;
+        let mut file = File::open(mapping_path)?;
+        let mut contents = String::new();
+        file.read_to_string(&mut contents)?;
+        let payload: serde_json::Value = serde_json::from_str(&contents)?;
+        match self.provider.delete_index(index_name) {
+            Ok(_) => {
+                //do nothing
+            }
+            Err(err) => {
+                error!("{}", err);
+                info!("failed to delete index. continue.");
+            }
+        }
+        self.provider.create_index(index_name)?;
+        self.provider.set_mapping(index_name, payload)?;
+        Ok(())
     }
 
     fn serialize_bulk_put<T: Serialize + Id>(
