@@ -585,15 +585,6 @@ impl App {
 
     fn re_create_from_scratch(&self, index_name: &str) -> Result<(), FailureError> {
         let mut index_was_deleted = false;
-        if let Some(ref mapping_path) = self.config.entity_mapping_source.as_ref() {
-            if !index_was_deleted {
-                self.try_delete_index(index_name);
-                self.provider.create_index(index_name)?;
-            }
-            index_was_deleted = true;
-            let payload = Self::read_json_from_file(mapping_path)?;
-            self.provider.set_mapping(index_name, payload)?;
-        }
         if let Some(ref settings_path) = self.config.entity_settings_source.as_ref() {
             if !index_was_deleted {
                 self.try_delete_index(index_name);
@@ -604,6 +595,15 @@ impl App {
             self.provider.close(index_name)?;
             self.provider.set_settings(index_name, payload)?;
             self.provider.open(index_name)?;
+        }
+        if let Some(ref mapping_path) = self.config.entity_mapping_source.as_ref() {
+            if !index_was_deleted {
+                self.try_delete_index(index_name);
+                self.provider.create_index(index_name)?;
+            }
+            index_was_deleted = true;
+            let payload = Self::read_json_from_file(mapping_path)?;
+            self.provider.set_mapping(index_name, payload)?;
         }
         if !index_was_deleted {
             self.provider.delete_all(index_name)?;

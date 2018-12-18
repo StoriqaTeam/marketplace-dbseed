@@ -1,0 +1,68 @@
+{
+  "properties": {
+    "country": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+          "type": "keyword"
+        }
+      }
+    },
+    "id": {
+      "type": "integer"
+    },
+    "name": {
+      "type": "nested",
+      "properties": {
+        "lang": {
+          "type": "text"
+        },
+        "text": {
+          "type": "text",
+          "analyzer": "stores_analyzer",
+          "search_analyzer": "stores_analyzer"
+        }
+      }
+    },
+    "product_categories": {
+      "type": "nested",
+      "properties": {
+        "category_id": {
+          "type": "integer"
+        },
+        "count": {
+          "type": "integer"
+        }
+      }
+    },
+    "rating": {
+      "type": "double"
+    },
+    "status": {
+      "type": "keyword"
+    },
+    "suggest": {
+      "type": "completion",
+      "analyzer": "simple",
+      "preserve_separators": true,
+      "preserve_position_increments": true,
+      "max_input_length": 50
+    },
+    "suggest_2": {
+      "type": "completion",
+      "analyzer": "simple",
+      "preserve_separators": true,
+      "preserve_position_increments": true,
+      "max_input_length": 50,
+      "contexts": [
+        {
+          "name": "status",
+          "type": "CATEGORY"
+        }
+      ]
+    },
+    "user_id": {
+      "type": "integer"
+    }
+  }
+}
