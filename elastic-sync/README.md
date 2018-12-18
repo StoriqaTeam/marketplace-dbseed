@@ -12,13 +12,15 @@ FLAGS:
     -V, --version       Prints version information
 
 OPTIONS:
-    -e, --elastic <elastic_url>      
-    -k, --kibana <kibana_url>        
-    -p, --postgres <postgres_url>    
+    -e, --elastic <elastic_url>                    
+    -m, --set-mapping <entity_mapping_source>      
+    -s, --set-settings <entity_settings_source>    
+    -k, --kibana <kibana_url>                      
+    -p, --postgres <postgres_url>                  
 
 ARGS:
     <entity_name>    
-    <entity_id> 
+    <entity_id>  
 ```
 
 ## Example usage

@@ -49,18 +49,26 @@ fn start() -> Result<(), FailureError> {
     let conn = Connection::connect(config.postgres_url.clone(), TlsMode::None)?;
     let http_client = reqwest::Client::new();
 
-    let provider = match (config.kibana_url.clone(), config.elastic_url.clone()) {
-        (Some(kibana_url), None) => Box::new(KibanaProvider {
-            http_client,
-            url: kibana_url,
-        }) as Box<dyn ApiProvider>,
-        (None, Some(elastic_url)) => Box::new(ElasticProvider {
-            http_client,
-            url: elastic_url,
-        }) as Box<dyn ApiProvider>,
+    let adapter = match (config.kibana_url.as_ref(), config.elastic_url.as_ref()) {
+        (Some(_), None) => Box::new(KibanaAdapter) as Box<dyn ElasticAdapter>,
+        (None, Some(_)) => Box::new(NoOpElasticAdapter) as Box<dyn ElasticAdapter>,
         _ => {
-            bail!("Either kibana or elastic config is permitted");
+            bail!("Either kibana or elastic config should be provided");
         }
+    };
+
+    let url = config
+        .elastic_url
+        .clone()
+        .or(config.kibana_url.clone())
+        .ok_or(format_err!(
+            "Either kibana or elastic config should be provided"
+        ))?;
+
+    let provider = ElasticProvider {
+        url,
+        http_client,
+        adapter,
     };
 
     let app = App {
@@ -80,108 +88,112 @@ fn start() -> Result<(), FailureError> {
 
 struct App {
     conn: Connection,
-    provider: Box<dyn ApiProvider>,
+    provider: ElasticProvider,
     config: Config,
 }
 
 struct ElasticProvider {
     url: String,
     http_client: Client,
+    adapter: Box<dyn ElasticAdapter>,
 }
 
-struct KibanaProvider {
-    url: String,
-    http_client: Client,
+struct NoOpElasticAdapter;
+
+struct KibanaAdapter;
+
+impl ElasticAdapter for NoOpElasticAdapter {
+    fn adjust_request(&self, request: ElasticRequest) -> ElasticRequest {
+        //do nothing
+        request
+    }
 }
 
-trait ApiProvider {
-    fn delete_all(&self, index: &str) -> Result<(), FailureError>;
-    fn delete_index(&self, index: &str) -> Result<(), FailureError>;
-    fn create_index(&self, index: &str) -> Result<(), FailureError>;
-    fn set_mapping(&self, index: &str, data: serde_json::Value) -> Result<(), FailureError>;
-    fn set_settings(&self, index: &str, data: serde_json::Value) -> Result<(), FailureError>;
-    fn open(&self, index: &str) -> Result<(), FailureError>;
-    fn close(&self, index: &str) -> Result<(), FailureError>;
-    fn bulk(&self, data: String) -> Result<(), FailureError>;
+impl ElasticAdapter for KibanaAdapter {
+    fn adjust_request(&self, request: ElasticRequest) -> ElasticRequest {
+        ElasticRequest {
+            path: format!(
+                "api/console/proxy?path={}&method={}",
+                request.path, request.method
+            ),
+            method: Method::POST,
+        }
+    }
 }
 
-impl ApiProvider for ElasticProvider {
+trait ElasticAdapter {
+    fn adjust_request(&self, request: ElasticRequest) -> ElasticRequest;
+}
+
+struct ElasticRequest {
+    path: String,
+    method: Method,
+}
+
+impl ElasticProvider {
     fn delete_all(&self, index: &str) -> Result<(), FailureError> {
         info!("deleting all entries from {}", index);
-        let url = format!("{}/{}/_delete_by_query", self.url, index,);
-        let _ = self.request_json(&url, Some(&json!({"query" : { "match_all" : {}}})))?;
+        let path = format!("{}/_delete_by_query", index);
+        let data = json!({"query" : { "match_all" : {}}});
+        let _ = self.request_json(path, Method::POST, Some(&data))?;
         Ok(())
     }
 
     fn bulk(&self, data: String) -> Result<(), FailureError> {
-        let url = format!("{}/_bulk", self.url);
-        let _ = self.post(&url, data)?;
+        let path = format!("_bulk");
+        let _ = self.request(path, Method::POST, data)?;
         Ok(())
     }
 
     fn set_mapping(&self, index: &str, data: serde_json::Value) -> Result<(), FailureError> {
-        let url = format!("{}/{}/_mapping/_doc", self.url, index);
-        let _ = self.request(&url, Method::PUT, Some(&data))?;
+        let path = format!("{}/_mapping/_doc", index);
+        let _ = self.request_json(path, Method::PUT, Some(&data))?;
         Ok(())
     }
 
     fn set_settings(&self, index: &str, data: serde_json::Value) -> Result<(), FailureError> {
-        let url = format!("{}/{}/_settings", self.url, index);
-        let _ = self.request(&url, Method::PUT, Some(&data))?;
+        let path = format!("{}/_settings", index);
+        let _ = self.request_json(path, Method::PUT, Some(&data))?;
         Ok(())
     }
 
     fn open(&self, index: &str) -> Result<(), FailureError> {
-        let url = format!("{}/{}/_open", self.url, index);
-        let _ = self.request::<()>(&url, Method::POST, None)?;
+        let path = format!("{}/_open", index);
+        let _ = self.request_json::<()>(path, Method::POST, None)?;
         Ok(())
     }
 
     fn close(&self, index: &str) -> Result<(), FailureError> {
-        let url = format!("{}/{}/_close", self.url, index);
-        let _ = self.request::<()>(&url, Method::POST, None)?;
+        let path = format!("{}/_close", index);
+        let _ = self.request_json::<()>(path, Method::POST, None)?;
         Ok(())
     }
 
     fn delete_index(&self, index: &str) -> Result<(), FailureError> {
-        let url = format!("{}/{}", self.url, index);
-        let _ = self.request::<()>(&url, Method::DELETE, None)?;
+        let path = format!("{}", index);
+        let _ = self.request_json::<()>(path, Method::DELETE, None)?;
         Ok(())
     }
 
     fn create_index(&self, index: &str) -> Result<(), FailureError> {
-        let url = format!("{}/{}", self.url, index);
-        let _ = self.request::<()>(&url, Method::PUT, None)?;
+        let path = format!("{}", index);
+        let _ = self.request_json::<()>(path, Method::PUT, None)?;
         Ok(())
     }
-}
 
-impl ElasticProvider {
-    fn request_json<T: Serialize>(
+    fn request(
         &self,
-        url: &str,
-        payload: Option<&T>,
+        path: String,
+        method: Method,
+        payload: String,
     ) -> Result<String, FailureError> {
-        let mut request = self.http_client.post(url).header("kbn-xsrf", "reporting");
-        if let Some(payload) = payload {
-            request = request.json(&payload);
-        }
-
-        debug!("request: {:?}", request);
-        let mut response = request.send()?;
-        let response_text = response.text()?;
-
-        if !response.status().is_success() {
-            bail!("{}", response_text);
-        }
-        Ok(response_text)
-    }
-
-    fn post(&self, url: &str, payload: String) -> Result<String, FailureError> {
+        let req = self.adapter.adjust_request(ElasticRequest { path, method });
+        let url = format!("{}/{}", self.url, req.path);
         let request = self
             .http_client
-            .post(url)
+            .request(req.method, &url)
             .header("kbn-xsrf", "reporting")
+            .header("Cookie", "holyshit=iamcool")
             .header("Content-Type", "application/json")
             .body(payload);
         debug!("request: {:?}", request);
@@ -194,134 +206,24 @@ impl ElasticProvider {
         Ok(response_text)
     }
 
-    fn request<T: Serialize>(
+    fn request_json<T: Serialize>(
         &self,
-        url: &str,
+        path: String,
         method: Method,
         payload: Option<&T>,
     ) -> Result<String, FailureError> {
+        let req = self.adapter.adjust_request(ElasticRequest { path, method });
+        let url = format!("{}/{}", self.url, req.path);
         let mut request = self
             .http_client
-            .request(method, url)
+            .request(req.method, &url)
+            .header("Cookie", "holyshit=iamcool")
             .header("kbn-xsrf", "reporting");
         if let Some(payload) = payload {
             request = request
                 .header("Content-Type", "application/json")
                 .json(&payload);
         }
-        debug!("request: {:?}", request);
-        let mut response = request.send()?;
-        let response_text = response.text()?;
-
-        if !response.status().is_success() {
-            bail!("{}", response_text);
-        }
-        Ok(response_text)
-    }
-}
-
-impl ApiProvider for KibanaProvider {
-    fn delete_all(&self, index: &str) -> Result<(), FailureError> {
-        info!("deleting all entries from {}", index);
-        let url = format!(
-            "{}/api/console/proxy?path={}/_delete_by_query&method=POST",
-            self.url, index,
-        );
-        let _ = self.request_json(&url, Some(&json!({"query" : { "match_all" : {}}})))?;
-        Ok(())
-    }
-
-    fn bulk(&self, data: String) -> Result<(), FailureError> {
-        let url = format!("{}/api/console/proxy?path=_bulk&method=POST", self.url);
-        let _ = self.post(&url, data)?;
-        Ok(())
-    }
-
-    fn set_mapping(&self, index: &str, data: serde_json::Value) -> Result<(), FailureError> {
-        let url = format!(
-            "{}/api/console/proxy?path={}/_mapping/_doc&method=PUT",
-            self.url, index
-        );
-        let _ = self.request_json(&url, Some(&data))?;
-        Ok(())
-    }
-
-    fn set_settings(&self, index: &str, data: serde_json::Value) -> Result<(), FailureError> {
-        let url = format!(
-            "{}/api/console/proxy?path={}/_settings&method=PUT",
-            self.url, index
-        );
-        let _ = self.request_json(&url, Some(&data))?;
-        Ok(())
-    }
-
-    fn open(&self, index: &str) -> Result<(), FailureError> {
-        let url = format!(
-            "{}/api/console/proxy?path={}/_open&method=POST",
-            self.url, index
-        );
-        let _ = self.request_json::<()>(&url, None)?;
-        Ok(())
-    }
-
-    fn close(&self, index: &str) -> Result<(), FailureError> {
-        let url = format!(
-            "{}/api/console/proxy?path={}/_close&method=POST",
-            self.url, index
-        );
-        let _ = self.request_json::<()>(&url, None)?;
-        Ok(())
-    }
-
-    fn delete_index(&self, index: &str) -> Result<(), FailureError> {
-        let url = format!(
-            "{}/api/console/proxy?path={}&method=DELETE",
-            self.url, index
-        );
-        let _ = self.request_json::<()>(&url, None)?;
-        Ok(())
-    }
-
-    fn create_index(&self, index: &str) -> Result<(), FailureError> {
-        let url = format!("{}/api/console/proxy?path={}&method=PUT", self.url, index);
-        let _ = self.request_json::<()>(&url, None)?;
-        Ok(())
-    }
-}
-
-impl KibanaProvider {
-    fn request_json<T: Serialize>(
-        &self,
-        url: &str,
-        payload: Option<&T>,
-    ) -> Result<String, FailureError> {
-        let mut request = self
-            .http_client
-            .post(url)
-            .header("Cookie", "holyshit=iamcool")
-            .header("kbn-xsrf", "reporting");
-        if let Some(payload) = payload {
-            request = request.json(&payload);
-        }
-
-        debug!("request: {:?}", request);
-        let mut response = request.send()?;
-        let response_text = response.text()?;
-
-        if !response.status().is_success() {
-            bail!("{}", response_text);
-        }
-        Ok(response_text)
-    }
-
-    fn post(&self, url: &str, payload: String) -> Result<String, FailureError> {
-        let request = self
-            .http_client
-            .post(url)
-            .header("Cookie", "holyshit=iamcool")
-            .header("kbn-xsrf", "reporting")
-            .header("Content-Type", "application/json")
-            .body(payload);
         debug!("request: {:?}", request);
         let mut response = request.send()?;
         let response_text = response.text()?;
