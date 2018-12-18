@@ -99,6 +99,9 @@ trait ApiProvider {
     fn delete_index(&self, index: &str) -> Result<(), FailureError>;
     fn create_index(&self, index: &str) -> Result<(), FailureError>;
     fn set_mapping(&self, index: &str, data: serde_json::Value) -> Result<(), FailureError>;
+    fn set_settings(&self, index: &str, data: serde_json::Value) -> Result<(), FailureError>;
+    fn open(&self, index: &str) -> Result<(), FailureError>;
+    fn close(&self, index: &str) -> Result<(), FailureError>;
     fn bulk(&self, data: String) -> Result<(), FailureError>;
 }
 
@@ -119,6 +122,24 @@ impl ApiProvider for ElasticProvider {
     fn set_mapping(&self, index: &str, data: serde_json::Value) -> Result<(), FailureError> {
         let url = format!("{}/{}/_mapping/_doc", self.url, index);
         let _ = self.request(&url, Method::PUT, Some(&data))?;
+        Ok(())
+    }
+
+    fn set_settings(&self, index: &str, data: serde_json::Value) -> Result<(), FailureError> {
+        let url = format!("{}/{}/_settings", self.url, index);
+        let _ = self.request(&url, Method::PUT, Some(&data))?;
+        Ok(())
+    }
+
+    fn open(&self, index: &str) -> Result<(), FailureError> {
+        let url = format!("{}/{}/_open", self.url, index);
+        let _ = self.request::<()>(&url, Method::POST, None)?;
+        Ok(())
+    }
+
+    fn close(&self, index: &str) -> Result<(), FailureError> {
+        let url = format!("{}/{}/_close", self.url, index);
+        let _ = self.request::<()>(&url, Method::POST, None)?;
         Ok(())
     }
 
@@ -225,6 +246,33 @@ impl ApiProvider for KibanaProvider {
         Ok(())
     }
 
+    fn set_settings(&self, index: &str, data: serde_json::Value) -> Result<(), FailureError> {
+        let url = format!(
+            "{}/api/console/proxy?path={}/_settings&method=PUT",
+            self.url, index
+        );
+        let _ = self.request_json(&url, Some(&data))?;
+        Ok(())
+    }
+
+    fn open(&self, index: &str) -> Result<(), FailureError> {
+        let url = format!(
+            "{}/api/console/proxy?path={}/_open&method=POST",
+            self.url, index
+        );
+        let _ = self.request_json::<()>(&url, None)?;
+        Ok(())
+    }
+
+    fn close(&self, index: &str) -> Result<(), FailureError> {
+        let url = format!(
+            "{}/api/console/proxy?path={}/_close&method=POST",
+            self.url, index
+        );
+        let _ = self.request_json::<()>(&url, None)?;
+        Ok(())
+    }
+
     fn delete_index(&self, index: &str) -> Result<(), FailureError> {
         let url = format!(
             "{}/api/console/proxy?path={}&method=DELETE",
@@ -287,27 +335,7 @@ impl KibanaProvider {
 
 impl App {
     fn sync_products(&self) -> Result<(), FailureError> {
-        match (
-            self.config.entity_id.is_some(),
-            self.config.delete_all,
-            &self.config.entity_mapping_source,
-        ) {
-            (false, true, Some(ref entity_mapping_source)) => {
-                self.re_create_with_mapping("products", &entity_mapping_source)?;
-            }
-            (false, true, None) => {
-                self.provider.delete_all("products")?;
-            }
-            (true, _, _) => {
-                bail!("delete-all and set-mapping unavailable when entity_id is provided");
-            }
-            (false, false, Some(_)) => {
-                bail!("set-mapping unavailable when delete-all is not provided");
-            }
-            (false, false, None) => {
-                //do nothing
-            }
-        }
+        self.set_up_sync("products")?;
 
         let base_products = if let Some(store_id) = self.config.entity_id {
             self.conn
@@ -467,27 +495,7 @@ impl App {
     }
 
     fn sync_stores(&self) -> Result<(), FailureError> {
-        match (
-            self.config.entity_id.is_some(),
-            self.config.delete_all,
-            &self.config.entity_mapping_source,
-        ) {
-            (false, true, Some(ref entity_mapping_source)) => {
-                self.re_create_with_mapping("stores", &entity_mapping_source)?;
-            }
-            (false, true, None) => {
-                self.provider.delete_all("stores")?;
-            }
-            (true, _, _) => {
-                bail!("delete-all and set-mapping unavailable when entity_id is provided");
-            }
-            (false, false, Some(_)) => {
-                bail!("set-mapping unavailable when delete-all is not provided");
-            }
-            (false, false, None) => {
-                //do nothing
-            }
-        }
+        self.set_up_sync("stores")?;
 
         let rows = if let Some(store_id) = self.config.entity_id {
             self.conn
@@ -523,6 +531,28 @@ impl App {
         Ok(())
     }
 
+    fn set_up_sync(&self, index: &str) -> Result<(), FailureError> {
+        if !self.config.delete_all
+            && (self.config.entity_mapping_source.is_some()
+                || self.config.entity_settings_source.is_some())
+        {
+            bail!("set-mapping and set-settings options are unavailable when delete-all is not provided");
+        }
+        match (self.config.entity_id.is_some(), self.config.delete_all) {
+            (true, true) => {
+                bail!("delete-all option is unavailable when entity_id is provided");
+            }
+            (true, false) => {
+                //do nothing
+            }
+            (false, false) => {
+                //do nothing
+            }
+            (false, true) => self.re_create_from_scratch(index)?,
+        }
+        Ok(())
+    }
+
     fn extract_store(row: &postgres::rows::Row) -> Result<Store, FailureError> {
         let name: Option<serde_json::Value> = row.get("name");
         let status = row.get("status");
@@ -553,29 +583,54 @@ impl App {
         Ok(store)
     }
 
-    fn re_create_with_mapping(
-        &self,
-        index_name: &str,
-        mapping_path: &str,
-    ) -> Result<(), FailureError> {
-        use std::fs::File;
-        use std::io::prelude::*;
-        let mut file = File::open(mapping_path)?;
-        let mut contents = String::new();
-        file.read_to_string(&mut contents)?;
-        let payload: serde_json::Value = serde_json::from_str(&contents)?;
+    fn re_create_from_scratch(&self, index_name: &str) -> Result<(), FailureError> {
+        let mut index_was_deleted = false;
+        if let Some(ref mapping_path) = self.config.entity_mapping_source.as_ref() {
+            if !index_was_deleted {
+                self.try_delete_index(index_name);
+                self.provider.create_index(index_name)?;
+            }
+            index_was_deleted = true;
+            let payload = Self::read_json_from_file(mapping_path)?;
+            self.provider.set_mapping(index_name, payload)?;
+        }
+        if let Some(ref settings_path) = self.config.entity_settings_source.as_ref() {
+            if !index_was_deleted {
+                self.try_delete_index(index_name);
+                self.provider.create_index(index_name)?;
+            }
+            index_was_deleted = true;
+            let payload = Self::read_json_from_file(settings_path)?;
+            self.provider.close(index_name)?;
+            self.provider.set_settings(index_name, payload)?;
+            self.provider.open(index_name)?;
+        }
+        if !index_was_deleted {
+            self.provider.delete_all(index_name)?;
+        }
+        Ok(())
+    }
+
+    fn try_delete_index(&self, index_name: &str) {
         match self.provider.delete_index(index_name) {
             Ok(_) => {
                 //do nothing
             }
             Err(err) => {
                 error!("{}", err);
-                info!("failed to delete index. continue.");
+                info!("failed to delete {} index. Continue.", index_name);
             }
         }
-        self.provider.create_index(index_name)?;
-        self.provider.set_mapping(index_name, payload)?;
-        Ok(())
+    }
+
+    fn read_json_from_file(filename: &str) -> Result<serde_json::Value, FailureError> {
+        use std::fs::File;
+        use std::io::prelude::*;
+        let mut file = File::open(filename)?;
+        let mut contents = String::new();
+        file.read_to_string(&mut contents)?;
+        let payload: serde_json::Value = serde_json::from_str(&contents)?;
+        Ok(payload)
     }
 
     fn serialize_bulk_put<T: Serialize + Id>(

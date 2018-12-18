@@ -13,4 +13,6 @@ pub struct Config {
     pub entity_id: Option<i32>,
     #[structopt(short = "m", long = "set-mapping")]
     pub entity_mapping_source: Option<String>,
+    #[structopt(short = "s", long = "set-settings")]
+    pub entity_settings_source: Option<String>,
 }
