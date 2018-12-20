@@ -203,6 +203,7 @@ impl ElasticProvider {
         if !response.status().is_success() {
             bail!("{}", response_text);
         }
+        trace!("response: {}", response_text);
         Ok(response_text)
     }
 
@@ -231,6 +232,7 @@ impl ElasticProvider {
         if !response.status().is_success() {
             bail!("{}", response_text);
         }
+        trace!("response: {}", response_text);
         Ok(response_text)
     }
 }
