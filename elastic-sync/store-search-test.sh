@@ -1,7 +1,7 @@
 #!/bin/bash
 # {"from":0,"query":{"bool":{"filter":[{"term":{"status":"published"}}],"must":{"nested":{"path":"name","query":{"match":{"name.text":"INPUT"}}}}}}}
 
-declare -a arr=("foxwood_RuS" "foxwood" "xwood" "foxwod" "faxwood" "faxwod")
+declare -a arr=("foxwood_RuS" "foxwood" "xwood" "foxwod" "fo" "fox" "fa" "fax" "Fox" "FO" "foxw" "foxwo")
 
 for i in "${arr[@]}"
 do

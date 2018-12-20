@@ -1,0 +1,28 @@
+{
+    "settings": {
+      "analysis": {
+        "analyzer": {
+          "products_analyzer": {
+            "tokenizer": "products_tokenizer",
+            "filter": [
+              "lowercase"
+            ]
+          }
+        },
+        "tokenizer": {
+          "products_tokenizer": {
+            "type": "edge_ngram",
+            "min_gram": 2,
+            "max_gram": 10,
+            "token_chars": [
+              "letter",
+              "digit",
+              "punctuation",
+              "symbol"
+            ]
+          }
+        }
+      }
+    }
+}
+  
