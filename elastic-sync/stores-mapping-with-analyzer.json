@@ -19,8 +19,18 @@
         },
         "text": {
           "type": "text",
-          "analyzer": "stores_analyzer",
-          "search_analyzer": "stores_analyzer"
+          "fields": {
+            "fuzzy_search": {
+              "type": "text",
+              "analyzer": "stores_fuzzy_analyzer",
+              "search_analyzer": "stores_fuzzy_analyzer"
+            },
+            "substring_search": {
+              "type": "text",
+              "analyzer": "stores_substring_analyzer",
+              "search_analyzer": "stores_substring_analyzer"
+            }
+          }
         }
       }
     },

@@ -1,28 +1,32 @@
 {
-    "settings": {
-      "analysis": {
-        "analyzer": {
-          "stores_analyzer": {
-            "tokenizer": "stores_tokenizer",
-            "filter": [
-              "lowercase"
-            ]
-          }
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "stores_fuzzy_analyzer": {
+          "tokenizer": "stores_fuzzy_tokenizer",
+          "filter": [
+            "lowercase"
+          ]
         },
-        "tokenizer": {
-          "stores_tokenizer": {
-            "type": "edge_ngram",
-            "min_gram": 2,
-            "max_gram": 10,
-            "token_chars": [
-              "letter",
-              "digit",
-              "punctuation",
-              "symbol"
-            ]
-          }
+        "stores_substring_analyzer": {
+          "tokenizer": "stores_substring_tokenizer",
+          "filter": [
+            "lowercase"
+          ]
+        }
+      },
+      "tokenizer": {
+        "stores_fuzzy_tokenizer": {
+          "type": "edge_ngram",
+          "min_gram": 2,
+          "max_gram": 30
+        },
+        "stores_substring_tokenizer": {
+          "type": "ngram",
+          "min_gram": 3,
+          "max_gram": 6
         }
       }
     }
+  }
 }
-  
