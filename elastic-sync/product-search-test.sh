@@ -6,7 +6,7 @@ declare -a arr=("product" "poduct" "po" "pro" "prd" "pod" "pru")
 for i in "${arr[@]}"
 do
    echo "$i"
-   query='{"from":0,"query":{"bool":{"filter":[{"nested":{"inner_hits":{"_source":false,"docvalue_fields":["variants.prod_id"],"sort":[]},"path":"variants","query":{"bool":{"filter":[{"exists":{"field":"variants"}}]}}}}],"must":{"bool":{"should":[{"nested":{"path":"name","query":{"fuzzy":{"name.text":{"value":"'$i'","boost":1.0,"fuzziness":2,"prefix_length":0}}}}},{"nested":{"path":"short_description","query":{"match":{"short_description.text":"'$i'"}}}},{"nested":{"path":"long_description","query":{"match":{"long_description.text":"'$i'"}}}}]}}}},"size":101,"sort":[]}'
+   query='{"from":0,"query":{"bool":{"filter":[{"nested":{"inner_hits":{"_source":false,"docvalue_fields":["variants.prod_id"],"sort":[]},"path":"variants","query":{"bool":{"filter":[{"exists":{"field":"variants"}}]}}}}],"must":{"bool":{"should":[{"nested":{"path":"name","query":{"multi_match":{"query":"'$i'","fields":["name.text.fuzzy_search","name.text.substring_search"],"type":"most_fields"}}}},{"nested":{"path":"short_description","query":{"match":{"short_description.text":"'$i'"}}}},{"nested":{"path":"long_description","query":{"match":{"long_description.text":"'$i'"}}}}]}}}},"size":101,"sort":[]}'
    curl -s -H "Content-Type:application/json" -X POST http://localhost:32776/products/_search -d $query | jq -c -r '.hits.hits'
    printf '\n'
 done

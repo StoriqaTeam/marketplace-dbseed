@@ -45,8 +45,18 @@
         },
         "text": {
           "type": "text",
-          "analyzer": "products_analyzer",
-          "search_analyzer": "products_analyzer"
+          "fields": {
+            "fuzzy_search": {
+              "type": "text",
+              "analyzer": "products_fuzzy_analyzer",
+              "search_analyzer": "products_fuzzy_analyzer"
+            },
+            "substring_search": {
+              "type": "text",
+              "analyzer": "products_substring_analyzer",
+              "search_analyzer": "products_substring_analyzer"
+            }
+          }
         }
       }
     },
