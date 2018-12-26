@@ -27,12 +27,12 @@ ARGS:
 
 Build project and synchronize all stores with mapping and settings override
 ```bash
-cargo build && RUST_LOG=elastic_sync=debug ./target/debug/elastic-sync --postgres "postgresql://stores:stores@100.71.27.96/stores" --elastic "http://100.66.28.123:9200" --delete-all -m "stores-mapping-with-analyzer.json" -s "stores-settings.json" stores
+cargo build && RUST_LOG=elastic_sync=debug ./target/debug/elastic-sync --postgres "postgresql://stores:stores@100.71.27.96/stores" --elastic "http://100.66.28.123:9200" --delete-all -m "stores-mapping.json" -s "stores-settings.json" stores
 ```
 
 Build project and synchronize all products with mapping and settings override
 ```bash
-cargo build && RUST_LOG=elastic_sync=debug ./target/debug/elastic-sync --postgres "postgresql://stores:stores@100.71.27.96/stores" --elastic "http://100.66.28.123:9200" --delete-all -m "products-mapping-with-analyzer.json" -s "products-settings.json" products
+cargo build && RUST_LOG=elastic_sync=debug ./target/debug/elastic-sync --postgres "postgresql://stores:stores@100.71.27.96/stores" --elastic "http://100.66.28.123:9200" --delete-all -m "products-mapping.json" -s "products-settings.json" products
 ```
 
 Build project and synchronize all products without deleting all entries from elastic
