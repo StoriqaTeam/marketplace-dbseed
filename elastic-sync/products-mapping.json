@@ -81,13 +81,6 @@
     "store_id": {
       "type": "integer"
     },
-    "suggest": {
-      "type": "completion",
-      "analyzer": "simple",
-      "preserve_separators": true,
-      "preserve_position_increments": true,
-      "max_input_length": 50
-    },
     "suggest_2": {
       "type": "completion",
       "analyzer": "simple",
