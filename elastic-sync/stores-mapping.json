@@ -19,18 +19,8 @@
         },
         "text": {
           "type": "text",
-          "fields": {
-            "edge_ngram_search": {
-              "type": "text",
-              "analyzer": "stores_edge_ngram_analyzer",
-              "search_analyzer": "standard"
-            },
-            "ngram_search": {
-              "type": "text",
-              "analyzer": "stores_ngram_analyzer",
-              "search_analyzer": "standard"
-            }
-          }
+          "analyzer": "stores_ngram_analyzer",
+          "search_analyzer": "standard"
         }
       }
     },
@@ -50,13 +40,6 @@
     },
     "status": {
       "type": "keyword"
-    },
-    "suggest": {
-      "type": "completion",
-      "analyzer": "simple",
-      "preserve_separators": true,
-      "preserve_position_increments": true,
-      "max_input_length": 50
     },
     "suggest_2": {
       "type": "completion",

@@ -2,12 +2,6 @@
     "settings": {
       "analysis": {
         "analyzer": {
-          "products_edge_ngram_analyzer": {
-            "tokenizer": "products_edge_ngram_tokenizer",
-            "filter": [
-              "lowercase"
-            ]
-          },
           "products_ngram_analyzer": {
             "tokenizer": "products_ngram_tokenizer",
             "filter": [
@@ -16,15 +10,10 @@
           }
         },
         "tokenizer": {
-          "products_edge_ngram_tokenizer": {
-            "type": "edge_ngram",
-            "min_gram": 2,
-            "max_gram": 30
-          },
           "products_ngram_tokenizer": {
             "type": "ngram",
-            "min_gram": 2,
-            "max_gram": 6
+            "min_gram": 3,
+            "max_gram": 20
           }
         }
       }

@@ -45,18 +45,8 @@
         },
         "text": {
           "type": "text",
-          "fields": {
-            "edge_ngram_search": {
-              "type": "text",
-              "analyzer": "products_edge_ngram_analyzer",
-              "search_analyzer": "standard"
-            },
-            "ngram_search": {
-              "type": "text",
-              "analyzer": "products_ngram_analyzer",
-              "search_analyzer": "standard"
-            }
-          }
+          "analyzer": "products_ngram_analyzer",
+          "search_analyzer": "standard"
         }
       }
     },
