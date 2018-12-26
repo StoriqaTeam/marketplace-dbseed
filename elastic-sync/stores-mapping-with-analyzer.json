@@ -20,15 +20,15 @@
         "text": {
           "type": "text",
           "fields": {
-            "fuzzy_search": {
+            "edge_ngram_search": {
               "type": "text",
-              "analyzer": "stores_fuzzy_analyzer",
-              "search_analyzer": "stores_fuzzy_analyzer"
+              "analyzer": "stores_edge_ngram_analyzer",
+              "search_analyzer": "standard"
             },
-            "substring_search": {
+            "ngram_search": {
               "type": "text",
-              "analyzer": "stores_substring_analyzer",
-              "search_analyzer": "stores_substring_analyzer"
+              "analyzer": "stores_ngram_analyzer",
+              "search_analyzer": "standard"
             }
           }
         }

@@ -46,15 +46,15 @@
         "text": {
           "type": "text",
           "fields": {
-            "fuzzy_search": {
+            "edge_ngram_search": {
               "type": "text",
-              "analyzer": "products_fuzzy_analyzer",
-              "search_analyzer": "products_fuzzy_analyzer"
+              "analyzer": "products_edge_ngram_analyzer",
+              "search_analyzer": "standard"
             },
-            "substring_search": {
+            "ngram_search": {
               "type": "text",
-              "analyzer": "products_substring_analyzer",
-              "search_analyzer": "products_substring_analyzer"
+              "analyzer": "products_ngram_analyzer",
+              "search_analyzer": "standard"
             }
           }
         }
@@ -150,6 +150,9 @@
     },
     "views": {
       "type": "integer"
+    },
+    "store_status": {
+      "type": "keyword"
     }
   }
 }

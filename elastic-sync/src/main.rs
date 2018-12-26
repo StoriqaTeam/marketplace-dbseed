@@ -243,9 +243,9 @@ impl App {
 
         let base_products = if let Some(store_id) = self.config.entity_id {
             self.conn
-                .query("SELECT id, store_id, short_description, long_description, category_id, views, rating, name, status FROM base_products WHERE id=$1 AND is_active=true", &[&store_id])?
+                .query("SELECT id, store_id, short_description, long_description, category_id, views, rating, name, status, store_status FROM base_products WHERE id=$1 AND is_active=true", &[&store_id])?
         } else {
-            self.conn.query("SELECT id, store_id, short_description, long_description, category_id, views, rating, name, status FROM base_products WHERE is_active=true", &[])?
+            self.conn.query("SELECT id, store_id, short_description, long_description, category_id, views, rating, name, status, store_status FROM base_products WHERE is_active=true", &[])?
         };
         debug!("got {} products from db", base_products.len());
 
@@ -283,6 +283,7 @@ impl App {
         )?)
         .ok_or(format_err!("Could not extract default name"))?;
         let status: Option<String> = base_product.get("status");
+        let store_status: Option<String> = base_product.get("store_status");
         let store_id: Option<i32> = base_product.get("store_id");
         let store_and_status = format!(
             "{}_{}",
@@ -312,6 +313,7 @@ impl App {
             name,
             status,
             variants: Vec::new(),
+            store_status,
         };
 
         Ok(product)

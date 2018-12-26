@@ -2,26 +2,26 @@
     "settings": {
       "analysis": {
         "analyzer": {
-          "products_fuzzy_analyzer": {
-            "tokenizer": "products_fuzzy_tokenizer",
+          "products_edge_ngram_analyzer": {
+            "tokenizer": "products_edge_ngram_tokenizer",
             "filter": [
               "lowercase"
             ]
           },
-          "products_substring_analyzer": {
-            "tokenizer": "products_substring_tokenizer",
+          "products_ngram_analyzer": {
+            "tokenizer": "products_ngram_tokenizer",
             "filter": [
               "lowercase"
             ]
           }
         },
         "tokenizer": {
-          "products_fuzzy_tokenizer": {
+          "products_edge_ngram_tokenizer": {
             "type": "edge_ngram",
             "min_gram": 2,
             "max_gram": 30
           },
-          "products_substring_tokenizer": {
+          "products_ngram_tokenizer": {
             "type": "ngram",
             "min_gram": 2,
             "max_gram": 6

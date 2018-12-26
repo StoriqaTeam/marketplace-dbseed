@@ -32,6 +32,7 @@ pub struct Product {
     pub status: Option<String>,
     pub suggest_2: Option<serde_json::Value>,
     pub variants: Vec<Variant>,
+    pub store_status: Option<String>,
 }
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
