@@ -298,7 +298,7 @@ impl App {
             category_id: base_product.get("category_id"),
             views: base_product.get("views"),
             rating: base_product.get("rating"),
-            suggest_2: Some(json!({
+            suggest: Some(json!({
                 "input": [
                     default_name,
                     default_name
@@ -473,7 +473,7 @@ impl App {
             product_categories: row.get("product_categories"),
             name,
             rating: row.get("rating"),
-            suggest_2: Some(json!({
+            suggest: Some(json!({
                 "input": [
                     default_name,
                     default_name,

@@ -41,7 +41,7 @@
     "status": {
       "type": "keyword"
     },
-    "suggest_2": {
+    "suggest": {
       "type": "completion",
       "analyzer": "simple",
       "preserve_separators": true,

@@ -8,7 +8,7 @@ pub struct Store {
     pub country: Option<String>,
     pub user_id: Option<i32>,
     pub product_categories: Option<serde_json::Value>,
-    pub suggest_2: Option<serde_json::Value>,
+    pub suggest: Option<serde_json::Value>,
     pub name: Option<serde_json::Value>,
     pub rating: f64,
     pub status: Option<String>,
@@ -30,7 +30,7 @@ pub struct Product {
     pub views: Option<i32>,
     pub rating: Option<f64>,
     pub status: Option<String>,
-    pub suggest_2: Option<serde_json::Value>,
+    pub suggest: Option<serde_json::Value>,
     pub variants: Vec<Variant>,
     pub store_status: Option<String>,
 }
