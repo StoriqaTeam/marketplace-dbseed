@@ -40,7 +40,7 @@ fn main() {
 }
 
 fn start() -> Result<(), FailureError> {
-    let config = Config::from_args();
+    let config = Config::from_args().sanitize();
     let config_without_passwords = Config {
         postgres_url: "***".to_string(),
         ..config.clone()
