@@ -2,7 +2,7 @@
 #[structopt(name = "elastic-sync", about = "Sync storiqa stores with elastic")]
 pub struct Config {
     #[structopt(short = "p", long = "postgres")]
-    pub postgres_url: String,
+    pub postgres_url: Option<String>,
     #[structopt(short = "k", long = "kibana")]
     pub kibana_url: Option<String>,
     #[structopt(short = "e", long = "elastic")]
@@ -20,7 +20,9 @@ pub struct Config {
 impl Config {
     pub fn sanitize(self) -> Config {
         Config {
-            postgres_url: self.postgres_url.trim_matches('/').to_string(),
+            postgres_url: self
+                .postgres_url
+                .map(|url| url.trim_matches('/').to_string()),
             kibana_url: self.kibana_url.map(|s| s.trim_matches('/').to_string()),
             elastic_url: self.elastic_url.map(|s| s.trim_matches('/').to_string()),
             delete_all: self.delete_all,

@@ -42,11 +42,17 @@ fn main() {
 fn start() -> Result<(), FailureError> {
     let config = Config::from_args().sanitize();
     let config_without_passwords = Config {
-        postgres_url: "***".to_string(),
+        postgres_url: Some("***".to_string()),
         ..config.clone()
     };
     info!("Starting app with config {:#?}", config_without_passwords);
-    let conn = Connection::connect(config.postgres_url.clone(), TlsMode::None)?;
+    let conn = Connection::connect(
+        config
+            .postgres_url
+            .clone()
+            .ok_or(format_err!("postgres url must be provided"))?,
+        TlsMode::None,
+    )?;
     let http_client = reqwest::Client::new();
 
     let adapter = match (config.kibana_url.as_ref(), config.elastic_url.as_ref()) {
