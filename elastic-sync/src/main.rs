@@ -245,8 +245,6 @@ impl ElasticProvider {
 
 impl App {
     fn sync_products(&self) -> Result<(), FailureError> {
-        self.set_up_sync("products")?;
-
         let base_products = if let Some(store_id) = self.config.entity_id {
             self.conn
                 .query("SELECT id, store_id, short_description, long_description, category_id, views, rating, name, status, store_status FROM base_products WHERE id=$1 AND is_active=true", &[&store_id])?
@@ -271,6 +269,8 @@ impl App {
         }
 
         self.fill_product_variants(&mut products)?;
+
+        self.set_up_sync("products")?;
 
         info!("inserting {} entries in products", products.len());
         let payload = self.serialize_bulk_put("products", products)?;
@@ -407,8 +407,6 @@ impl App {
     }
 
     fn sync_stores(&self) -> Result<(), FailureError> {
-        self.set_up_sync("stores")?;
-
         let rows = if let Some(store_id) = self.config.entity_id {
             self.conn
                 .query("SELECT id, country, user_id, product_categories, name, rating, status FROM stores WHERE id=$1 AND is_active=true", &[&store_id])?
@@ -435,6 +433,8 @@ impl App {
 
             stores.push(store);
         }
+
+        self.set_up_sync("stores")?;
 
         info!("inserting {} entries in stores", stores.len());
         let payload = self.serialize_bulk_put("stores", stores)?;
