@@ -360,17 +360,17 @@ impl App {
             }
         }
 
-        let mut variats_by_id: HashMap<i32, &mut Variant> = products_by_id
+        let mut variats_by_product_id: HashMap<i32, &mut Variant> = products_by_id
             .iter_mut()
             .flat_map(|(_, p)| p.variants.iter_mut())
             .map(|v| (v.prod_id, v))
             .collect();
 
-        let product_variant_ids: Vec<i32> = variats_by_id.keys().cloned().collect();
+        let variant_product_ids: Vec<i32> = variats_by_product_id.keys().cloned().collect();
 
         let variant_attrs = self.conn.query(
             "SELECT prod_id, attr_id, value, value_type FROM prod_attr_values WHERE prod_id = ANY ($1)",
-            &[&product_variant_ids],
+            &[&variant_product_ids],
         )?;
 
         debug!("got {} variant attributes db", variant_attrs.len());
@@ -398,7 +398,7 @@ impl App {
 
             let prod_id: i32 = variant_attr.get("prod_id");
 
-            if let Some(variant) = variats_by_id.get_mut(&prod_id) {
+            if let Some(variant) = variats_by_product_id.get_mut(&prod_id) {
                 variant.attrs.push(attr);
             }
         }
