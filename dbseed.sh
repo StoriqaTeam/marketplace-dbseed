@@ -174,11 +174,12 @@ resetDB() {
 }
 
 dumpSync() {
+    test -d $dumpdir || mkdir -p $dumpdir
     dblist=( `$psql -F, -l | cut -d, -f1 | grep -ve postgres -ve template` )
 
     for db in ${dblist[@]}
     do
-        dump_path=./dump/${db}.sql
+        dump_path=${dumpdir%%/}/${db}.sql
         getDump $db $dump_path
         clearDB $db
         insertDump $db $dump_path

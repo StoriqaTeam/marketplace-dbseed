@@ -8,6 +8,8 @@ debug_enabled=false
 # dump - gets dump of each db and reinserts it
 # elastic-sync - runs elastic-sync
 sync_mode=dump
+# Directory to temporarily store db dumps 
+dumpdir="./dump"
 
 db_host="db-postgresql"
 db_user="postgres"
@@ -28,6 +30,6 @@ teststoreids=(
   828
 )
 testproductids=(
-  2182,
+  2182
   2183
 )
