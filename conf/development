@@ -23,3 +23,11 @@ k8s_addr=""
 
 recovery_attempt_timeout=180
 recovery_attempt_count=5
+
+teststoreids=(
+  828
+)
+testproductids=(
+  2182,
+  2183
+)

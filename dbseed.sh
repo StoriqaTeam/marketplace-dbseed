@@ -119,6 +119,21 @@ obfuscateUsers() {
     && logEvent $LOG_OBFUSCATE
 }
 
+publishStoreProduct() {
+    for storeid in ${teststoreids[@]}
+        $psql -d stores -q \
+          -c "UPDATE stores SET
+          status = 'published'
+          WHERE id = $storeid"
+    for productid in ${testproductids[@]}
+    do
+        $psql -d stores -q \
+          -c "UPDATE base_products SET
+          status = 'published'
+          WHERE id = $productid"
+    done
+}
+
 clearDB() {
     db_name="$1"
 
@@ -264,6 +279,8 @@ case "${1-}" in
     fi
 
     obfuscateUsers
+    publishStoreProduct
+    
     kubectl delete pods -l stack=storiqa
     ;;
 * )
