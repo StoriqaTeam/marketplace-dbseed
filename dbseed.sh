@@ -121,10 +121,12 @@ obfuscateUsers() {
 
 publishStoreProduct() {
     for storeid in ${teststoreids[@]}
+    do
         $psql -d stores -q \
           -c "UPDATE stores SET
           status = 'published'
           WHERE id = $storeid"
+    done
     for productid in ${testproductids[@]}
     do
         $psql -d stores -q \
