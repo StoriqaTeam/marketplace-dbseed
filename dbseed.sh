@@ -179,6 +179,7 @@ resetDB() {
 }
 
 dumpSync() {
+    test -d $dumpdir || mkdir -p $dumpdir
     dblist=( `$psql -F, -l | cut -d, -f1 | grep -ve postgres -ve template` )
 
     for db in ${dblist[@]}
