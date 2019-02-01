@@ -135,7 +135,8 @@ publishStoreProduct() {
     do
         $psql -d stores -q \
           -c "UPDATE base_products SET
-          status = 'published'
+          status = 'published',
+          store_status = 'published'
           WHERE id = $productid"
     done
 }
