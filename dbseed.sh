@@ -39,6 +39,8 @@ LOG_E_DBCONN="Failed to connect to postgres"
 LOG_E_AUTH="Authorization failed. Aborting."
 LOG_E_TIMEOUT="Timeout waiting for PostgreSQL to start."
 LOG_E_SYNC="Failed to sync ElasticSearch to PostgreSQL."
+LOG_E_DUMPDIR="Failed to create temporary directory."
+LOG_E_ESSYNC="Could not find elastic-sync binary"
 
 ###
 # Functions
@@ -174,7 +176,6 @@ resetDB() {
 }
 
 dumpSync() {
-    test -d $dumpdir || mkdir -p $dumpdir
     dblist=( `$psql -F, -l | cut -d, -f1 | grep -ve postgres -ve template` )
 
     for db in ${dblist[@]}
@@ -188,7 +189,13 @@ dumpSync() {
 }
 
 elasticSync() {
-    echo YO DAWG
+    for index in ${es_indices[@]}
+    do
+        $espath -d \
+          -p $es_dburl \
+          -e $es_host \
+          $index
+    done
 }
 
 printHelp() {
@@ -276,8 +283,11 @@ case "${1-}" in
 
     if [[ ${sync_mode-dump} = dump ]]
     then
+        test -d $dumpdir || mkdir -p $dumpdir
+        test -d $dumpdir || errorExit $E_MISC $LOG_E_DUMPDIR
         dumpSync || errorExit $E_SYNC $LOG_E_SYNC
     else
+        test -x $espath || errorExit $E_MISC $LOG_E_ESSYNC
         elasticSync || errorExit $E_SYNC $LOG_E_SYNC
     fi
 
