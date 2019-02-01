@@ -31,6 +31,7 @@ LOG_INSERT="Inserting dump into DB"
 LOG_DUMP="Taking dump of DB"
 LOG_OBFUSCATE="User obfuscation successful."
 LOG_SYNC="PostgreSQL to ElasticSearch sync complete."
+LOG_PUBLISH="Publishing test entities."
 
 LOG_E_MISC="Unknown error occurred."
 LOG_E_ARGS="Invalid arguments supplied."
@@ -39,6 +40,8 @@ LOG_E_DBCONN="Failed to connect to postgres"
 LOG_E_AUTH="Authorization failed. Aborting."
 LOG_E_TIMEOUT="Timeout waiting for PostgreSQL to start."
 LOG_E_SYNC="Failed to sync ElasticSearch to PostgreSQL."
+LOG_E_DUMPDIR="Failed to create temporary directory."
+LOG_E_ESSYNC="Could not find elastic-sync binary"
 
 ###
 # Functions
@@ -120,6 +123,7 @@ obfuscateUsers() {
 }
 
 publishStoreProduct() {
+    logEvent $LOG_PUBLISH
     for storeid in ${teststoreids[@]}
     do
         $psql -d stores -q \
@@ -131,7 +135,8 @@ publishStoreProduct() {
     do
         $psql -d stores -q \
           -c "UPDATE base_products SET
-          status = 'published'
+          status = 'published',
+          store_status = 'published'
           WHERE id = $productid"
     done
 }
@@ -188,7 +193,13 @@ dumpSync() {
 }
 
 elasticSync() {
-    echo YO DAWG
+    for index in ${es_indices[@]}
+    do
+        $espath -d \
+          -p $es_dburl \
+          -e $es_host \
+          $index
+    done
 }
 
 printHelp() {
@@ -273,16 +284,18 @@ case "${1-}" in
 
     restartDbPod $k8s_pod_name
     testDbConn || errorExit $E_DBCONN $LOG_E_DBCONN
+    obfuscateUsers
+    publishStoreProduct
 
     if [[ ${sync_mode-dump} = dump ]]
     then
+        test -d $dumpdir || mkdir -p $dumpdir
+        test -d $dumpdir || errorExit $E_MISC $LOG_E_DUMPDIR
         dumpSync || errorExit $E_SYNC $LOG_E_SYNC
     else
+        test -x $espath || errorExit $E_MISC $LOG_E_ESSYNC
         elasticSync || errorExit $E_SYNC $LOG_E_SYNC
     fi
-
-    obfuscateUsers
-    publishStoreProduct
     
     kubectl delete pods -l stack=storiqa
     ;;

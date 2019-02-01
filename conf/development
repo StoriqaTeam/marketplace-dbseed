@@ -1,3 +1,5 @@
+export RUST_LOG=elastic_sync=debug
+
 # Path to log file (use stdout to print to terminal)
 log_path="stdout"
 # Redirect output by child processes to log
@@ -7,9 +9,17 @@ debug_enabled=false
 # Sync mode:
 # dump - gets dump of each db and reinserts it
 # elastic-sync - runs elastic-sync
-sync_mode=dump
-# Directory to temporarily store db dumps 
+sync_mode=elastic-sync
+# Directory to temporarily store db dumps if sync_mode=dump
 dumpdir="./dump"
+# Path to elastic-sync binary if sync_mode=elastic-sync
+espath="./elastic-sync/target/debug/elastic-sync"
+es_host="http://elasticsearch:9200"
+es_dburl="postgresql://stores:stores@db-postgresql/stores"
+es_indices=(
+  products
+  stores
+)
 
 db_host="db-postgresql"
 db_user="postgres"
@@ -23,7 +33,7 @@ k8s_user="admin"
 k8s_pass=""
 k8s_addr=""
 
-recovery_attempt_timeout=180
+recovery_attempt_timeout=120
 recovery_attempt_count=5
 
 teststoreids=(
