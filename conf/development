@@ -33,7 +33,7 @@ k8s_user="admin"
 k8s_pass=""
 k8s_addr=""
 
-recovery_attempt_timeout=180
+recovery_attempt_timeout=120
 recovery_attempt_count=5
 
 teststoreids=(

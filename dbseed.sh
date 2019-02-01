@@ -31,6 +31,7 @@ LOG_INSERT="Inserting dump into DB"
 LOG_DUMP="Taking dump of DB"
 LOG_OBFUSCATE="User obfuscation successful."
 LOG_SYNC="PostgreSQL to ElasticSearch sync complete."
+LOG_PUBLISH="Publishing test entities."
 
 LOG_E_MISC="Unknown error occurred."
 LOG_E_ARGS="Invalid arguments supplied."
@@ -122,6 +123,7 @@ obfuscateUsers() {
 }
 
 publishStoreProduct() {
+    logEvent $LOG_PUBLISH
     for storeid in ${teststoreids[@]}
     do
         $psql -d stores -q \
@@ -280,6 +282,8 @@ case "${1-}" in
 
     restartDbPod $k8s_pod_name
     testDbConn || errorExit $E_DBCONN $LOG_E_DBCONN
+    obfuscateUsers
+    publishStoreProduct
 
     if [[ ${sync_mode-dump} = dump ]]
     then
@@ -290,9 +294,6 @@ case "${1-}" in
         test -x $espath || errorExit $E_MISC $LOG_E_ESSYNC
         elasticSync || errorExit $E_SYNC $LOG_E_SYNC
     fi
-
-    obfuscateUsers
-    publishStoreProduct
     
     kubectl delete pods -l stack=storiqa
     ;;
