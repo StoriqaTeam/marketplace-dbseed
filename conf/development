@@ -25,6 +25,12 @@ db_host="db-postgresql"
 db_user="postgres"
 db_pass="CrwHmp14dx"
 
+ignore_userids=(
+  22684
+  22685
+  22686
+)
+
 k8s_pod_name="db-postgresql-0"
 k8s_auth="false"
 

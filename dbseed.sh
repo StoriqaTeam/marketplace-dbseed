@@ -108,17 +108,20 @@ insertDump() {
 }
 
 obfuscateUsers() {
+    not_in_list=`echo ${ignore_userid[@]} | sed -e s/' '/', '/g`
     $psql -d users -q \
       -c "UPDATE users SET
         first_name = 'user' || id,
         last_name = 'user' || id,
         middle_name = 'user' || id,
         phone = '+7495' || id,
-        email = id || '@crapmail.tld'" \
+        email = id || '@crapmail.tld'
+        WHERE id NOT IN ( $not_in_list )" \
     && $psql -d users -q \
       -c "UPDATE identities SET
         email = user_id || '@crapmail.tld',
-        password = 'JJIKrKq4UtXrmNbXlflH9zhYxClU+AnngJ1Pl3NH/xA=.1x2DtY66Pg'" \
+        password = 'JJIKrKq4UtXrmNbXlflH9zhYxClU+AnngJ1Pl3NH/xA=.1x2DtY66Pg'
+        WHERE id NOT IN ( $not_in_list )" \
     && logEvent $LOG_OBFUSCATE
 }
 
