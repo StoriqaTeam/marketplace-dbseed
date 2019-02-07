@@ -122,6 +122,22 @@ obfuscateUsers() {
         email = user_id || '@crapmail.tld',
         password = 'JJIKrKq4UtXrmNbXlflH9zhYxClU+AnngJ1Pl3NH/xA=.1x2DtY66Pg'
         WHERE id NOT IN ( $not_in_list )" \
+    && $psql -d delivery -q \
+      -c "INSERT INTO roles 
+        (user_id, name) 
+        VALUES ($admin_userid, 'superuser')" \
+    && $psql -d stores -q \
+      -c "INSERT INTO user_roles 
+        (user_id, name) 
+        VALUES ($admin_userid, 'superuser')" \
+    && $psql -d billing -q \
+      -c "INSERT INTO roles 
+        (user_id, name) 
+        VALUES ($admin_userid, 'superuser')" \
+    && $psql -d users -q \
+      -c "INSERT INTO user_roles 
+        (user_id, name) 
+        VALUES ($admin_userid, 'superuser')" \
     && logEvent $LOG_OBFUSCATE
 }
 

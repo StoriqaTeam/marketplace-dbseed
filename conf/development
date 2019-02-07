@@ -31,6 +31,8 @@ ignore_userids=(
   22686
 )
 
+admin_userid=22686
+
 k8s_pod_name="db-postgresql-0"
 k8s_auth="false"
 
