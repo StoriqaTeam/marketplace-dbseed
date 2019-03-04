@@ -108,7 +108,7 @@ insertDump() {
 }
 
 obfuscateUsers() {
-    not_in_list=`echo ${ignore_userid[@]} | sed -e s/' '/', '/g`
+    not_in_list=`echo ${ignore_userids[@]} | sed -e s/' '/', '/g`
     $psql -d users -q \
       -c "UPDATE users SET
         first_name = 'user' || id,
@@ -133,7 +133,13 @@ obfuscateUsers() {
     && $psql -d billing -q \
       -c "INSERT INTO roles 
         (user_id, name) 
-        VALUES ($admin_userid, 'superuser')" \
+        VALUES ($admin_userid, 'superuser');
+	delete from accounts;
+	insert into accounts (id, wallet_address, currency, is_pooled) values ('db670c0c-b800-4150-b819-77ea489ceec6', '0xf02c85d43be81d35c422b8fc0d886a9d77dedaa0','stq', false);
+	insert into accounts (id, wallet_address, currency, is_pooled) values ('a510f115-67b8-4b85-8205-fa6019925fc5', '0x18a68bafffbfe4d7844ec5ed224b9b1c3e397ceb','eth', false);
+	insert into accounts (id, wallet_address, currency, is_pooled) values ('ded2b17c-cc11-4704-90ea-2edf15668d9f', 'n4ooRdHhJzzEjFHBLY49QsayeYi9H1BAWA','btc', false);
+	insert into accounts (id, wallet_address, currency, is_pooled) values ('fd070153-4272-4e2d-ba17-5b9be4abe206', '0x64547a6e36f3146a79b48d4b08adfc199649e2cc','stq', false);
+    " \
     && $psql -d users -q \
       -c "INSERT INTO user_roles 
         (user_id, name) 
